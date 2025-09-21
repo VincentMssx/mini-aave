@@ -1,14 +1,16 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { LendingPool, MockERC20, aToken, MockV3Aggregator } from "../typechain-types"; // Typechain generates these types
+import { LendingPool, MockERC20, AToken, MockV3Aggregator, DefaultInterestRateModel } from "../typechain-types";
+import { ChainlinkOracleAdapter } from "../typechain-types";
 
 describe("LendingPool", function () {
     let deployer: HardhatEthersSigner, user1: HardhatEthersSigner, user2: HardhatEthersSigner;
     let lendingPool: LendingPool;
     let weth: MockERC20, dai: MockERC20;
-    let aWeth: aToken, aDai: aToken;
-    let ethUsdPriceFeed: MockV3Aggregator;
+    let aWeth: AToken, aDai: AToken;
+    let oracle: ChainlinkOracleAdapter;
+    let interestRateModel: DefaultInterestRateModel;
 
     const WETH_PRICE = ethers.parseUnits("3000", 8); // $3000 with 8 decimals
     const DAI_PRICE = ethers.parseUnits("1", 8); // $1 with 8 decimals
@@ -26,23 +28,23 @@ describe("LendingPool", function () {
         dai = await MockERC20Factory.deploy("Dai Stablecoin", "DAI", 18);
 
         const MockV3AggregatorFactory = await ethers.getContractFactory("MockV3Aggregator");
-        ethUsdPriceFeed = await MockV3AggregatorFactory.deploy(WETH_PRICE);
+        const ethUsdPriceFeed = await MockV3AggregatorFactory.deploy(WETH_PRICE);
         const daiUsdPriceFeed = await MockV3AggregatorFactory.deploy(DAI_PRICE);
 
         // Deploy Core Contracts
         const OracleFactory = await ethers.getContractFactory("ChainlinkOracleAdapter");
-        const oracle = await OracleFactory.deploy(deployer.address);
+        oracle = await OracleFactory.deploy(deployer.address);
         await oracle.setAssetFeed(await weth.getAddress(), await ethUsdPriceFeed.getAddress());
         await oracle.setAssetFeed(await dai.getAddress(), await daiUsdPriceFeed.getAddress());
 
         const IRMFactory = await ethers.getContractFactory("DefaultInterestRateModel");
-        const interestRateModel = await IRMFactory.deploy();
+        interestRateModel = await IRMFactory.deploy();
 
         const LendingPoolFactory = await ethers.getContractFactory("LendingPool");
         lendingPool = await LendingPoolFactory.deploy(await oracle.getAddress());
         
         // Deploy aTokens
-        const ATokenFactory = await ethers.getContractFactory("aToken");
+        const ATokenFactory = await ethers.getContractFactory("AToken");
         aWeth = await ATokenFactory.deploy(await weth.getAddress(), await lendingPool.getAddress(), "aWETH", "aWETH");
         aDai = await ATokenFactory.deploy(await dai.getAddress(), await lendingPool.getAddress(), "aDAI", "aDAI");
 
@@ -96,6 +98,7 @@ describe("LendingPool", function () {
         beforeEach(async function () {
             // user1 deposits 10 WETH as collateral
             await lendingPool.connect(user1).deposit(await weth.getAddress(), DEPOSIT_AMOUNT_WETH);
+            await lendingPool.connect(user1).setUserUseAsCollateral(await weth.getAddress(), true);
             // user2 deposits 5000 DAI to be borrowed
             await lendingPool.connect(user2).deposit(await dai.getAddress(), DEPOSIT_AMOUNT_DAI);
         });
@@ -127,6 +130,7 @@ describe("LendingPool", function () {
 
         beforeEach(async function () {
             await lendingPool.connect(user1).deposit(await weth.getAddress(), DEPOSIT_AMOUNT_WETH);
+            await lendingPool.connect(user1).setUserUseAsCollateral(await weth.getAddress(), true);
             await lendingPool.connect(user2).deposit(await dai.getAddress(), DEPOSIT_AMOUNT_DAI);
             
             borrowAmount = ethers.parseEther("1000");
@@ -145,11 +149,15 @@ describe("LendingPool", function () {
     });
 
     describe("Liquidation", function () {
+        let ethUsdPriceFeed: MockV3Aggregator;
         beforeEach(async function () {
+            ethUsdPriceFeed = await ethers.getContractFactory("MockV3Aggregator").then(f => f.deploy(WETH_PRICE));
+            await oracle.setAssetFeed(await weth.getAddress(), await ethUsdPriceFeed.getAddress());
             // user1 deposits 1 WETH as collateral
             await weth.mint(user1.address, ethers.parseEther("1"));
             await weth.connect(user1).approve(await lendingPool.getAddress(), ethers.parseEther("1"));
             await lendingPool.connect(user1).deposit(await weth.getAddress(), ethers.parseEther("1"));
+            await lendingPool.connect(user1).setUserUseAsCollateral(await weth.getAddress(), true);
             
             // user2 deposits DAI for liquidity
             await lendingPool.connect(user2).deposit(await dai.getAddress(), DEPOSIT_AMOUNT_DAI);
@@ -160,10 +168,7 @@ describe("LendingPool", function () {
         
         it("should allow a liquidator to liquidate an unhealthy position", async function () {
             // WETH price drops, making the position unhealthy.
-            // Old collateral value: $3000. Debt: $2300. HF = (3000 * 0.8) / 2300 = 1.04
-            // New WETH price: $2800.
-            await ethUsdPriceFeed.setLatestAnswer(ethers.parseUnits("2800", 8));
-            // New collateral value: $2800. Debt: $2300. HF = (2800 * 0.8) / 2300 = 0.97 < 1
+            await ethUsdPriceFeed.setLatestAnswer(ethers.parseUnits("2000", 8));
             
             const liquidator = user2;
             const amountToRepay = ethers.parseEther("1150"); // 50% of 2300 (close factor)
@@ -178,8 +183,8 @@ describe("LendingPool", function () {
 
             // Check liquidator received collateral with bonus
             // Repaid value = $1150. Bonus = 5%. Seized value = 1150 * 1.05 = $1207.5
-            // Seized WETH = 1207.5 / 2800 (new price) = ~0.43125 WETH
-            const expectedSeizedWeth = ethers.parseEther("0.43125");
+            // Seized WETH = 1207.5 / 2000 (new price) = ~0.60375 WETH
+            const expectedSeizedWeth = ethers.parseEther("0.60375");
             const finalLiquidatorATokenBalance = await aWeth.balanceOf(liquidator.address);
             
             // Check if seized amount is close to expected

@@ -22,12 +22,14 @@ contract LendingPool is Ownable {
     event Repay(address indexed user, address indexed asset, uint256 amount);
     event Liquidate(address indexed liquidator, address indexed borrower, address repayAsset, address collateralAsset, uint256 repayAmount, uint256 seizedCollateralAmount);
     event ReserveInitialized(address indexed asset, address indexed aToken);
+    event SetUserUseAsCollateral(address indexed user, address indexed asset, bool useAsCollateral);
+
 
     // --- State Variables ---
     mapping(address => Reserve.Data) private _reserves;
-    mapping(address => bool) private _isReserve;
+    address[] private _reservesList;
     mapping(address => mapping(address => uint256)) private _userBorrows; // asset -> user -> borrow amount
-    mapping(address => bool) private _userUsesAsCollateral; // user -> uses any asset as collateral
+    mapping(address => mapping(address => bool)) private _userUsesAsCollateral; // user -> asset -> uses as collateral
 
     ChainlinkOracleAdapter public immutable oracle;
 
@@ -39,7 +41,7 @@ contract LendingPool is Ownable {
 
     // --- Modifiers ---
     modifier reserveExists(address asset) {
-        require(_isReserve[asset], "LendingPool: Reserve does not exist");
+        require(_reserves[asset].aTokenAddress != address(0), "LendingPool: Reserve does not exist");
         _;
     }
 
@@ -50,7 +52,7 @@ contract LendingPool is Ownable {
 
     // --- Admin Functions ---
     function initReserve(address asset, address aTokenAddress, address interestRateModel) external onlyOwner {
-        require(!_isReserve[asset], "LendingPool: Reserve already initialized");
+        require(_reserves[asset].aTokenAddress == address(0), "LendingPool: Reserve already initialized");
         _reserves[asset] = Reserve.Data({
             aTokenAddress: aTokenAddress,
             interestRateModelAddress: interestRateModel,
@@ -59,8 +61,13 @@ contract LendingPool is Ownable {
             lastUpdateTimestamp: uint40(block.timestamp),
             totalBorrows: 0
         });
-        _isReserve[asset] = true;
+        _reservesList.push(asset);
         emit ReserveInitialized(asset, aTokenAddress);
+    }
+
+    function setUserUseAsCollateral(address asset, bool useAsCollateral) external {
+        _userUsesAsCollateral[msg.sender][asset] = useAsCollateral;
+        emit SetUserUseAsCollateral(msg.sender, asset, useAsCollateral);
     }
     
     // --- Core Logic ---
@@ -91,7 +98,7 @@ contract LendingPool is Ownable {
         aTokenContract.burn(msg.sender, aTokensToBurn);
         
         // Health Factor check before withdrawing collateral
-        if(_userUsesAsCollateral[msg.sender]) {
+        if(_userUsesAsCollateral[msg.sender][asset]) {
             (uint256 totalCollateralETH, uint256 totalDebtETH) = _getUserAccountData(msg.sender);
             require(totalDebtETH == 0 || (totalCollateralETH * 1e18) / totalDebtETH >= LIQUIDATION_THRESHOLD, "Cannot withdraw: health factor too low");
         }
@@ -103,7 +110,6 @@ contract LendingPool is Ownable {
     function borrow(address asset, uint256 amount) external reserveExists(asset) {
         require(amount > 0, "Amount must be > 0");
         _accrueInterest(asset);
-        _userUsesAsCollateral[msg.sender] = true;
 
         (uint256 totalCollateralETH, uint256 totalDebtETH) = _getUserAccountData(msg.sender);
         uint256 assetPrice = oracle.getAssetPrice(asset);
@@ -199,28 +205,23 @@ contract LendingPool is Ownable {
     }
 
     function _getUserAccountData(address user) internal view returns (uint256 totalCollateralETH, uint256 totalDebtETH) {
-        // This is a simplified version. A real implementation would iterate through a list of reserves.
-        // For this example, you would need to manually check assets used as collateral/debt.
-        // For the sake of demonstration, let's assume we have two assets: WETH and DAI.
-        // You'll need to adapt this logic based on the reserves you initialize.
+        for (uint256 i = 0; i < _reservesList.length; i++) {
+            address asset = _reservesList[i];
+            Reserve.Data storage reserve = _reserves[asset];
 
-        address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // Mainnet example
-        address DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;   // Mainnet example
+            if (_userUsesAsCollateral[user][asset]) {
+                uint256 aTokenBalance = aToken(reserve.aTokenAddress).balanceOf(user);
+                uint256 balance = (aTokenBalance * reserve.supplyIndex) / RAY;
+                totalCollateralETH += (balance * oracle.getAssetPrice(asset)) / 1e18;
+            }
 
-        if (_isReserve[WETH]) {
-            Reserve.Data storage wethReserve = _reserves[WETH];
-            uint256 aWethBalance = aToken(wethReserve.aTokenAddress).balanceOf(user);
-            uint256 wethBalance = (aWethBalance * wethReserve.supplyIndex) / RAY;
-            totalCollateralETH += (wethBalance * oracle.getAssetPrice(WETH)) / 1e18;
-            totalDebtETH += (_userBorrows[WETH][user] * oracle.getAssetPrice(WETH)) / 1e18;
+            if (_userBorrows[asset][user] > 0) {
+                totalDebtETH += (_userBorrows[asset][user] * oracle.getAssetPrice(asset)) / 1e18;
+            }
         }
+    }
 
-        if (_isReserve[DAI]) {
-            Reserve.Data storage daiReserve = _reserves[DAI];
-            uint256 aDaiBalance = aToken(daiReserve.aTokenAddress).balanceOf(user);
-            uint256 daiBalance = (aDaiBalance * daiReserve.supplyIndex) / RAY;
-            totalCollateralETH += (daiBalance * oracle.getAssetPrice(DAI)) / 1e18; // Prices are already normalized
-            totalDebtETH += (_userBorrows[DAI][user] * oracle.getAssetPrice(DAI)) / 1e18;
-        }
+    function getReservesList() external view returns (address[] memory) {
+        return _reservesList;
     }
 }

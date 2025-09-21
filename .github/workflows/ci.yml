@@ -43,5 +43,5 @@ jobs:
       # (Optional but Recommended) Step 6: Run Linter
       # You can add a linting step here. First, add a 'lint' script to your package.json
       # e.g., "lint": "solhint 'contracts/**/*.sol'"
-      # - name: Lint Solidity code
-      #   run: npm run lint
+      - name: Lint Solidity code
+        run: npm run lint

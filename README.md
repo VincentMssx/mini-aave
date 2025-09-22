@@ -1,6 +1,6 @@
 # Mini-Aave: A Simplified DeFi Lending Protocol
 
-[![CI](https://github.com/<YOUR_USERNAME>/mini-aave/actions/workflows/ci.yml/badge.svg)](https://github.com/<YOUR_USERNAME>/mini-aave/actions/workflows/ci.yml)
+[![CI](https://github.com/VincentMssx/mini-aave/actions/workflows/ci.yml/badge.svg)](https://github.com/VincentMssx/mini-aave/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Mini-Aave is a simplified, educational implementation of a decentralized, non-custodial liquidity protocol inspired by Aave. It allows users to supply assets to earn interest and borrow assets against their collateral.
@@ -67,7 +67,7 @@ mini-aave/
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/<YOUR_USERNAME>/mini-aave.git
+    git clone https://github.com/VincentMssx/mini-aave.git
     cd mini-aave
     ```
 
@@ -76,4 +76,38 @@ mini-aave/
     npm install
     ```
 
-### Environment Va
+### Environment Variables
+
+To deploy to a testnet or mainnet, you will need to set up environment variables. Create a `.env` file in the root of the project and add the following variables:
+
+```
+PRIVATE_KEY="your-private-key"
+ALCHEMY_API_KEY="your-alchemy-api-key"
+ETHERSCAN_API_KEY="your-etherscan-api-key"
+```
+
+A `.env.example` file is provided as a template.
+
+## Usage
+
+### Compiling Contracts
+
+```bash
+npm run compile
+```
+
+### Running Tests
+
+```bash
+npm run test
+```
+
+### Deploying to a Network
+
+To deploy the contracts to a network (e.g., Sepolia), run the following command:
+
+```bash
+npx hardhat run scripts/deploy.ts --network <network-name>
+```
+
+Replace `<network-name>` with the name of the network configured in `hardhat.config.ts`.

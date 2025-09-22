@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./Reserve.sol";
-import "../tokens/aToken.sol";
-import "../interest/InterestRateModel.sol";
-import "../oracles/ChainlinkOracleAdapter.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Reserve} from "./Reserve.sol";
+import {aToken} from "../tokens/aToken.sol";
+import {IInterestRateModel} from "../interest/InterestRateModel.sol";
+import {ChainlinkOracleAdapter} from "../oracles/ChainlinkOracleAdapter.sol";
 
 /**
  * @title LendingPool

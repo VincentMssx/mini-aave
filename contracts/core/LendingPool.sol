@@ -16,12 +16,56 @@ contract LendingPool is Ownable {
     using Reserve for Reserve.Data;
 
     // --- Events ---
+    /**
+     * @notice Emitted when a user deposits an asset into the lending pool.
+     * @param user The address of the user who deposited.
+     * @param asset The address of the asset deposited.
+     * @param amount The amount of the asset deposited.
+     */
     event Deposit(address indexed user, address indexed asset, uint256 amount);
+    /**
+     * @notice Emitted when a user withdraws an asset from the lending pool.
+     * @param user The address of the user who withdrew.
+     * @param asset The address of the asset withdrawn.
+     * @param amount The amount of the asset withdrawn.
+     */
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
+    /**
+     * @notice Emitted when a user borrows an asset from the lending pool.
+     * @param user The address of the user who borrowed.
+     * @param asset The address of the asset borrowed.
+     * @param amount The amount of the asset borrowed.
+     */
     event Borrow(address indexed user, address indexed asset, uint256 amount);
+    /**
+     * @notice Emitted when a user repays a borrowed asset to the lending pool.
+     * @param user The address of the user who repaid.
+     * @param asset The address of the asset repaid.
+     * @param amount The amount of the asset repaid.
+     */
     event Repay(address indexed user, address indexed asset, uint256 amount);
+    /**
+     * @notice Emitted when a borrower's position is liquidated.
+     * @param liquidator The address of the user who performed the liquidation.
+     * @param borrower The address of the user whose position was liquidated.
+     * @param repayAsset The address of the asset that was repaid to cover the debt.
+     * @param collateralAsset The address of the collateral asset that was seized.
+     * @param repayAmount The amount of the repaid asset.
+     * @param seizedCollateralAmount The amount of the seized collateral.
+     */
     event Liquidate(address indexed liquidator, address indexed borrower, address repayAsset, address collateralAsset, uint256 repayAmount, uint256 seizedCollateralAmount);
+    /**
+     * @notice Emitted when a new reserve is initialized.
+     * @param asset The address of the underlying asset.
+     * @param aToken The address of the corresponding aToken.
+     */
     event ReserveInitialized(address indexed asset, address indexed aToken);
+    /**
+     * @notice Emitted when a user enables or disables an asset to be used as collateral.
+     * @param user The address of the user.
+     * @param asset The address of the asset.
+     * @param useAsCollateral True if the asset is enabled as collateral, false otherwise.
+     */
     event SetUserUseAsCollateral(address indexed user, address indexed asset, bool useAsCollateral);
 
 
@@ -31,12 +75,27 @@ contract LendingPool is Ownable {
     mapping(address => mapping(address => uint256)) private _userBorrows; // asset -> user -> borrow amount
     mapping(address => mapping(address => bool)) private _userUsesAsCollateral; // user -> asset -> uses as collateral
 
+    /**
+     * @notice The address of the Chainlink oracle adapter.
+     */
     ChainlinkOracleAdapter public immutable oracle;
 
     // --- Constants ---
+    /**
+     * @notice A constant for high-precision arithmetic, equal to 10^27.
+     */
     uint256 public constant RAY = 1e27;
+    /**
+     * @notice The threshold at which a position is considered undercollateralized and can be liquidated.
+     */
     uint256 public constant LIQUIDATION_THRESHOLD = 80 * 1e16; // 80%
+    /**
+     * @notice The bonus percentage given to liquidators.
+     */
     uint256 public constant LIQUIDATION_BONUS = 5 * 1e16; // 5%
+    /**
+     * @notice The percentage of a position that can be liquidated at once.
+     */
     uint256 public constant CLOSE_FACTOR = 50 * 1e16; // 50%
 
     // --- Modifiers ---
@@ -46,11 +105,21 @@ contract LendingPool is Ownable {
     }
 
     // --- Constructor ---
+    /**
+     * @notice Constructs the LendingPool contract.
+     * @param oracleAddress The address of the Chainlink oracle adapter.
+     */
     constructor(address oracleAddress) Ownable(msg.sender) {
         oracle = ChainlinkOracleAdapter(oracleAddress);
     }
 
     // --- Admin Functions ---
+    /**
+     * @notice Initializes a new reserve.
+     * @param asset The address of the underlying asset.
+     * @param aTokenAddress The address of the corresponding aToken.
+     * @param interestRateModel The address of the interest rate model.
+     */
     function initReserve(address asset, address aTokenAddress, address interestRateModel) external onlyOwner {
         require(_reserves[asset].aTokenAddress == address(0), "LendingPool: Reserve already initialized");
         _reserves[asset] = Reserve.Data({
@@ -65,12 +134,22 @@ contract LendingPool is Ownable {
         emit ReserveInitialized(asset, aTokenAddress);
     }
 
+    /**
+     * @notice Sets whether a user can use an asset as collateral.
+     * @param asset The address of the asset.
+     * @param useAsCollateral True if the asset can be used as collateral, false otherwise.
+     */
     function setUserUseAsCollateral(address asset, bool useAsCollateral) external {
         _userUsesAsCollateral[msg.sender][asset] = useAsCollateral;
         emit SetUserUseAsCollateral(msg.sender, asset, useAsCollateral);
     }
     
     // --- Core Logic ---
+    /**
+     * @notice Deposits an asset into the lending pool.
+     * @param asset The address of the asset to deposit.
+     * @param amount The amount to deposit.
+     */
     function deposit(address asset, uint256 amount) external reserveExists(asset) {
         require(amount > 0, "Amount must be > 0");
         _accrueInterest(asset);
@@ -85,6 +164,11 @@ contract LendingPool is Ownable {
         emit Deposit(msg.sender, asset, amount);
     }
 
+    /**
+     * @notice Withdraws an asset from the lending pool.
+     * @param asset The address of the asset to withdraw.
+     * @param amount The amount to withdraw.
+     */
     function withdraw(address asset, uint256 amount) external reserveExists(asset) {
         require(amount > 0, "Amount must be > 0");
         _accrueInterest(asset);
@@ -107,6 +191,11 @@ contract LendingPool is Ownable {
         emit Withdraw(msg.sender, asset, amount);
     }
 
+    /**
+     * @notice Borrows an asset from the lending pool.
+     * @param asset The address of the asset to borrow.
+     * @param amount The amount to borrow.
+     */
     function borrow(address asset, uint256 amount) external reserveExists(asset) {
         require(amount > 0, "Amount must be > 0");
         _accrueInterest(asset);
@@ -126,6 +215,11 @@ contract LendingPool is Ownable {
         emit Borrow(msg.sender, asset, amount);
     }
 
+    /**
+     * @notice Repays a borrowed asset to the lending pool.
+     * @param asset The address of the asset to repay.
+     * @param amount The amount to repay.
+     */
     function repay(address asset, uint256 amount) external reserveExists(asset) {
         require(amount > 0, "Amount must be > 0");
         _accrueInterest(asset);
@@ -142,6 +236,12 @@ contract LendingPool is Ownable {
         emit Repay(msg.sender, asset, amountToRepay);
     }
     
+    /**
+     * @notice Liquidates a borrower's position.
+     * @param borrower The address of the borrower to liquidate.
+     * @param repayAsset The address of the asset to repay.
+     * @param collateralAsset The address of the collateral asset to seize.
+     */
     function liquidate(address borrower, address repayAsset, address collateralAsset) external payable {
         _accrueInterest(repayAsset);
         _accrueInterest(collateralAsset);
@@ -176,6 +276,10 @@ contract LendingPool is Ownable {
     }
 
     // --- Internal & View Functions ---
+    /**
+     * @notice Accrues interest on a reserve.
+     * @param asset The address of the asset to accrue interest on.
+     */
     function _accrueInterest(address asset) internal {
         Reserve.Data storage reserve = _reserves[asset];
         uint40 lastTimestamp = reserve.lastUpdateTimestamp;
@@ -204,6 +308,12 @@ contract LendingPool is Ownable {
         reserve.lastUpdateTimestamp = uint40(block.timestamp);
     }
 
+    /**
+     * @notice Gets a user's account data.
+     * @param user The address of the user.
+     * @return totalCollateralETH The total value of the user's collateral in ETH.
+     * @return totalDebtETH The total value of the user's debt in ETH.
+     */
     function _getUserAccountData(address user) internal view returns (uint256 totalCollateralETH, uint256 totalDebtETH) {
         for (uint256 i = 0; i < _reservesList.length; i++) {
             address asset = _reservesList[i];
@@ -221,6 +331,10 @@ contract LendingPool is Ownable {
         }
     }
 
+    /**
+     * @notice Gets the list of reserves.
+     * @return The list of reserve addresses.
+     */
     function getReservesList() external view returns (address[] memory) {
         return _reservesList;
     }

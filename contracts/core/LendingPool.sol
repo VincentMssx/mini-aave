@@ -364,7 +364,7 @@ contract LendingPool is Ownable {
                 totalCollateralETH += (balance * oracle.getAssetPrice(asset)) / 1e18;
             }
 
-            if (_userBorrows[asset][user] > 0) {
+            if (_userBorrows[asset][user] != 0) {
                 totalDebtETH += (_userBorrows[asset][user] * oracle.getAssetPrice(asset)) / 1e18;
             }
         }

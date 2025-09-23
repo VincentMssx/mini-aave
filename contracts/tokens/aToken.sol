@@ -10,9 +10,18 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @dev This is a standard ERC20 token with minting and burning restricted to the owner (the LendingPool).
  */
 contract aToken is ERC20, Ownable {
-    // The address of the underlying asset for this aToken
+    /**
+     * @notice The address of the underlying asset for this aToken.
+     */
     address public immutable UNDERLYING_ASSET;
 
+    /**
+     * @notice Constructs the aToken contract.
+     * @param underlyingAsset The address of the underlying asset.
+     * @param pool The address of the LendingPool.
+     * @param tokenName The name of the token.
+     * @param tokenSymbol The symbol of the token.
+     */
     constructor(
         address underlyingAsset,
         address pool,

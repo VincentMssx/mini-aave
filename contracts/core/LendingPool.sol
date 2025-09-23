@@ -9,13 +9,37 @@ import {IInterestRateModel} from "../interest/InterestRateModel.sol";
 import {ChainlinkOracleAdapter} from "../oracles/ChainlinkOracleAdapter.sol";
 
 // --- Custom Errors ---
+/**
+ * @notice Thrown when an operation is attempted on a non-existent reserve.
+ */
 error ReserveDoesNotExist();
+/**
+ * @notice Thrown when trying to initialize a reserve that has already been initialized.
+ */
 error ReserveAlreadyInitialized();
+/**
+ * @notice Thrown when an operation is attempted with an amount of 0.
+ */
 error AmountIsZero();
+/**
+ * @notice Thrown when a user has an insufficient aToken balance for a withdrawal.
+ */
 error InsufficientATokenBalance();
+/**
+ * @notice Thrown when a withdrawal would lower the user's health factor below the liquidation threshold.
+ */
 error HealthFactorTooLow();
+/**
+ * @notice Thrown when a user with no collateral attempts to borrow.
+ */
 error NoCollateralAvailable();
+/**
+ * @notice Thrown when a borrow action would exceed the user's collateral limits.
+ */
 error BorrowExceedsCollateralLimits();
+/**
+ * @notice Thrown when a liquidation is attempted on a borrower who is not under the liquidation threshold.
+ */
 error BorrowerNotUnderLiquidationThreshold();
 
 /**
@@ -110,6 +134,10 @@ contract LendingPool is Ownable {
     uint256 public constant CLOSE_FACTOR = 50 * 1e16; // 50%
 
     // --- Modifiers ---
+    /**
+     * @notice A modifier to check if a reserve exists for a given asset.
+     * @param asset The address of the asset to check.
+     */
     modifier reserveExists(address asset) {
         if (_reserves[asset].aTokenAddress == address(0)) revert ReserveDoesNotExist();
         _;

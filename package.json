@@ -9,6 +9,7 @@
     "lint": "solhint 'contracts/**/*.sol'"
   },
   "dependencies": {
-    "@nomicfoundation/solidity-analyzer-linux-x64-gnu": "^0.1.2"
+    "@nomicfoundation/solidity-analyzer-linux-x64-gnu": "^0.1.2",
+    "@nomicfoundation/solidity-analyzer-win32-x64-msvc": "^0.1.2"
   }
 }

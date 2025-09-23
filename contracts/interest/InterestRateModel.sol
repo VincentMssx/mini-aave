@@ -26,13 +26,27 @@ interface IInterestRateModel {
  * Rates are expressed in RAY (1e27).
  */
 contract DefaultInterestRateModel is IInterestRateModel {
+    /**
+     * @notice The number of seconds in a year.
+     */
     uint256 public constant SECONDS_PER_YEAR = 365 days;
+    /**
+     * @notice A RAY is a high-precision number (1e27) used for interest rate calculations.
+     */
     uint256 public constant RAY = 1e27;
 
-    // These rates are APR, scaled by 1e18
+    /**
+     * @notice The base interest rate (APR), scaled by 1e18.
+     */
     uint256 private constant BASE_RATE = 0.02 * 1e18; // 2%
+    /**
+     * @notice The slope of the interest rate curve (APR), scaled by 1e18.
+     */
     uint256 private constant SLOPE_1 = 0.18 * 1e18; // 18%
 
+    /**
+     * @inheritdoc IInterestRateModel
+     */
     function calculateInterestRates(
         uint256 availableLiquidity,
         uint256 totalBorrows

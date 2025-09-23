@@ -5,16 +5,37 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
+ * @notice Thrown when a price feed is not set for an asset.
+ */
+error PriceFeedNotSet();
+/**
+ * @notice Thrown when the price returned from the oracle is invalid.
+ */
+error InvalidPrice();
+
+/**
  * @title ChainlinkOracleAdapter
  * @notice Provides a standardized interface for fetching asset prices from Chainlink.
  * @dev Normalizes prices to 18 decimals.
  */
 contract ChainlinkOracleAdapter is Ownable {
     mapping(address => address) private _assetToFeed;
+    /**
+     * @notice The number of decimals for the price returned by this oracle.
+     */
     uint8 public constant PRICE_DECIMALS = 18;
 
+    /**
+     * @notice Emitted when the price feed for an asset is updated.
+     * @param asset The address of the asset.
+     * @param feed The address of the new price feed.
+     */
     event AssetFeedUpdated(address indexed asset, address indexed feed);
 
+    /**
+     * @notice Constructs the ChainlinkOracleAdapter contract.
+     * @param owner The owner of the contract.
+     */
     constructor(address owner) Ownable(owner) {}
 
     /**
@@ -34,12 +55,12 @@ contract ChainlinkOracleAdapter is Ownable {
      */
     function getAssetPrice(address asset) external view returns (uint256) {
         address feedAddress = _assetToFeed[asset];
-        require(feedAddress != address(0), "Oracle: Price feed not set for asset");
+        if (feedAddress == address(0)) revert PriceFeedNotSet();
 
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feedAddress);
         (, int256 price, , , ) = priceFeed.latestRoundData();
 
-        require(price > 0, "Oracle: Invalid price");
+        if (price <= 0) revert InvalidPrice();
 
         uint8 feedDecimals = priceFeed.decimals();
         if (feedDecimals >= PRICE_DECIMALS) {
@@ -49,6 +70,11 @@ contract ChainlinkOracleAdapter is Ownable {
         }
     }
 
+    /**
+     * @notice Gets the address of the price feed for a given asset.
+     * @param asset The address of the asset.
+     * @return The address of the price feed.
+     */
     function getAssetFeed(address asset) external view returns(address) {
         return _assetToFeed[asset];
     }

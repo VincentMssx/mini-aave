@@ -71,7 +71,7 @@ describe("LendingPool", function () {
 
         it("should revert if depositing zero amount", async function () {
             await expect(lendingPool.connect(user1).deposit(await weth.getAddress(), 0))
-                .to.be.revertedWith("Amount must be > 0");
+                .to.be.revertedWithCustomError(lendingPool, "AmountIsZero");
         });
     });
 
@@ -90,7 +90,7 @@ describe("LendingPool", function () {
 
         it("should revert if trying to withdraw more than deposited", async function () {
              await expect(lendingPool.connect(user1).withdraw(await weth.getAddress(), DEPOSIT_AMOUNT_WETH + ethers.parseEther("1")))
-                .to.be.revertedWith("Insufficient aToken balance");
+                .to.be.revertedWithCustomError(lendingPool, "InsufficientATokenBalance");
         });
     });
 
@@ -116,12 +116,12 @@ describe("LendingPool", function () {
             const borrowAmount = ethers.parseEther("24001");
             
             await expect(lendingPool.connect(user1).borrow(await dai.getAddress(), borrowAmount))
-                .to.be.revertedWith("Borrow would exceed collateral limits");
+                .to.be.revertedWithCustomError(lendingPool, "BorrowExceedsCollateralLimits");
         });
 
         it("should revert if user has no collateral", async function () {
              await expect(lendingPool.connect(user2).borrow(await weth.getAddress(), ethers.parseEther("1")))
-                .to.be.revertedWith("No collateral available");
+                .to.be.revertedWithCustomError(lendingPool, "NoCollateralAvailable");
         });
     });
     
@@ -197,7 +197,7 @@ describe("LendingPool", function () {
 
         it("should revert if position is not eligible for liquidation", async function () {
             await expect(lendingPool.connect(user2).liquidate(user1.address, await dai.getAddress(), await weth.getAddress()))
-                .to.be.revertedWith("Borrower is not under liquidation threshold");
+                .to.be.revertedWithCustomError(lendingPool, "BorrowerNotUnderLiquidationThreshold");
         });
     });
 });

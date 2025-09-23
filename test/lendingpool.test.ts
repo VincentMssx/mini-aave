@@ -1,14 +1,14 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { LendingPool, MockERC20, aToken, MockV3Aggregator, DefaultInterestRateModel } from "../typechain-types";
+import { LendingPool, MockERC20, AToken, MockV3Aggregator, DefaultInterestRateModel } from "../typechain-types";
 import { ChainlinkOracleAdapter } from "../typechain-types";
 
 describe("LendingPool", function () {
     let deployer: HardhatEthersSigner, user1: HardhatEthersSigner, user2: HardhatEthersSigner;
     let lendingPool: LendingPool;
     let weth: MockERC20, dai: MockERC20;
-    let aWeth: aToken, aDai: aToken;
+    let aWeth: AToken, aDai: AToken;
     let oracle: ChainlinkOracleAdapter;
     let interestRateModel: DefaultInterestRateModel;
 
@@ -44,7 +44,7 @@ describe("LendingPool", function () {
         lendingPool = await LendingPoolFactory.deploy(await oracle.getAddress());
         
         // Deploy aTokens
-        const ATokenFactory = await ethers.getContractFactory("aToken");
+        const ATokenFactory = await ethers.getContractFactory("AToken");
         aWeth = await ATokenFactory.deploy(await weth.getAddress(), await lendingPool.getAddress(), "aWETH", "aWETH");
         aDai = await ATokenFactory.deploy(await dai.getAddress(), await lendingPool.getAddress(), "aDAI", "aDAI");
 

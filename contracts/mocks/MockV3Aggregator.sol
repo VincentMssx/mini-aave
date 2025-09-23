@@ -21,7 +21,7 @@ contract MockV3Aggregator is AggregatorV3Interface {
      * @notice Constructs the MockV3Aggregator contract.
      * @param _initialAnswer The initial answer for the price feed.
      */
-    constructor(int256 _initialAnswer) {
+    constructor(int256 _initialAnswer) public {
         latestAnswer = _initialAnswer;
     }
 

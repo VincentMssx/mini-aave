@@ -5,11 +5,12 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title aToken
+ * @title AToken
+ * @author Vincent Mousseaux
  * @notice An interest-bearing token that represents a deposit in the LendingPool.
  * @dev This is a standard ERC20 token with minting and burning restricted to the owner (the LendingPool).
  */
-contract aToken is ERC20, Ownable {
+contract AToken is ERC20, Ownable {
     /**
      * @notice The address of the underlying asset for this aToken.
      */
@@ -27,7 +28,7 @@ contract aToken is ERC20, Ownable {
         address pool,
         string memory tokenName,
         string memory tokenSymbol
-    ) ERC20(tokenName, tokenSymbol) Ownable(pool) {
+    ) public ERC20(tokenName, tokenSymbol) Ownable(pool) {
         UNDERLYING_ASSET = underlyingAsset;
     }
 

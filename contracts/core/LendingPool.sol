@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Reserve} from "./Reserve.sol";
-import {aToken} from "../tokens/aToken.sol";
+import {AToken} from "../tokens/AToken.sol";
 import {IInterestRateModel} from "../interest/InterestRateModel.sol";
 import {ChainlinkOracleAdapter} from "../oracles/ChainlinkOracleAdapter.sol";
 
@@ -198,7 +198,7 @@ contract LendingPool is Ownable {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
 
         uint256 aTokensToMint = (amount * RAY) / reserve.supplyIndex;
-        aToken(reserve.aTokenAddress).mint(msg.sender, aTokensToMint);
+        AToken(reserve.aTokenAddress).mint(msg.sender, aTokensToMint);
 
         emit Deposit(msg.sender, asset, amount);
     }
@@ -215,7 +215,7 @@ contract LendingPool is Ownable {
         Reserve.Data storage reserve = _reserves[asset];
         uint256 aTokensToBurn = (amount * RAY) / reserve.supplyIndex;
         
-        aToken aTokenContract = aToken(reserve.aTokenAddress);
+        AToken aTokenContract = AToken(reserve.aTokenAddress);
         if (aTokenContract.balanceOf(msg.sender) < aTokensToBurn) revert InsufficientATokenBalance();
 
         aTokenContract.burn(msg.sender, aTokensToBurn);
@@ -306,8 +306,8 @@ contract LendingPool is Ownable {
         Reserve.Data storage collateralReserve = _reserves[collateralAsset];
         uint256 aTokensToSeize = (seizedCollateralAmount * RAY) / collateralReserve.supplyIndex;
         
-        aToken(collateralReserve.aTokenAddress).burn(borrower, aTokensToSeize);
-        aToken(collateralReserve.aTokenAddress).mint(msg.sender, aTokensToSeize);
+        AToken(collateralReserve.aTokenAddress).burn(borrower, aTokensToSeize);
+        AToken(collateralReserve.aTokenAddress).mint(msg.sender, aTokensToSeize);
 
         IERC20(repayAsset).transferFrom(msg.sender, address(this), repayAmount);
 
@@ -354,12 +354,12 @@ contract LendingPool is Ownable {
      * @return totalDebtETH The total value of the user's debt in ETH.
      */
     function _getUserAccountData(address user) internal view returns (uint256 totalCollateralETH, uint256 totalDebtETH) {
-        for (uint256 i = 0; i < _reservesList.length; i++) {
+        for (uint256 i = 0; i < _reservesList.length; ++i) {
             address asset = _reservesList[i];
             Reserve.Data storage reserve = _reserves[asset];
 
             if (_userUsesAsCollateral[user][asset]) {
-                uint256 aTokenBalance = aToken(reserve.aTokenAddress).balanceOf(user);
+                uint256 aTokenBalance = AToken(reserve.aTokenAddress).balanceOf(user);
                 uint256 balance = (aTokenBalance * reserve.supplyIndex) / RAY;
                 totalCollateralETH += (balance * oracle.getAssetPrice(asset)) / 1e18;
             }

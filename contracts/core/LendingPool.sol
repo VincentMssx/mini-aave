@@ -8,8 +8,19 @@ import {aToken} from "../tokens/aToken.sol";
 import {IInterestRateModel} from "../interest/InterestRateModel.sol";
 import {ChainlinkOracleAdapter} from "../oracles/ChainlinkOracleAdapter.sol";
 
+// --- Custom Errors ---
+error ReserveDoesNotExist();
+error ReserveAlreadyInitialized();
+error AmountIsZero();
+error InsufficientATokenBalance();
+error HealthFactorTooLow();
+error NoCollateralAvailable();
+error BorrowExceedsCollateralLimits();
+error BorrowerNotUnderLiquidationThreshold();
+
 /**
  * @title LendingPool
+ * @author Vincent Mousseaux
  * @notice The main contract for the lending protocol, handling all user interactions.
  */
 contract LendingPool is Ownable {
@@ -22,28 +33,28 @@ contract LendingPool is Ownable {
      * @param asset The address of the asset deposited.
      * @param amount The amount of the asset deposited.
      */
-    event Deposit(address indexed user, address indexed asset, uint256 amount);
+    event Deposit(address indexed user, address indexed asset, uint256 indexed amount);
     /**
      * @notice Emitted when a user withdraws an asset from the lending pool.
      * @param user The address of the user who withdrew.
      * @param asset The address of the asset withdrawn.
      * @param amount The amount of the asset withdrawn.
      */
-    event Withdraw(address indexed user, address indexed asset, uint256 amount);
+    event Withdraw(address indexed user, address indexed asset, uint256 indexed amount);
     /**
      * @notice Emitted when a user borrows an asset from the lending pool.
      * @param user The address of the user who borrowed.
      * @param asset The address of the asset borrowed.
      * @param amount The amount of the asset borrowed.
      */
-    event Borrow(address indexed user, address indexed asset, uint256 amount);
+    event Borrow(address indexed user, address indexed asset, uint256 indexed amount);
     /**
      * @notice Emitted when a user repays a borrowed asset to the lending pool.
      * @param user The address of the user who repaid.
      * @param asset The address of the asset repaid.
      * @param amount The amount of the asset repaid.
      */
-    event Repay(address indexed user, address indexed asset, uint256 amount);
+    event Repay(address indexed user, address indexed asset, uint256 indexed amount);
     /**
      * @notice Emitted when a borrower's position is liquidated.
      * @param liquidator The address of the user who performed the liquidation.
@@ -53,7 +64,7 @@ contract LendingPool is Ownable {
      * @param repayAmount The amount of the repaid asset.
      * @param seizedCollateralAmount The amount of the seized collateral.
      */
-    event Liquidate(address indexed liquidator, address indexed borrower, address repayAsset, address collateralAsset, uint256 repayAmount, uint256 seizedCollateralAmount);
+    event Liquidate(address indexed liquidator, address indexed borrower, address indexed repayAsset, address collateralAsset, uint256 repayAmount, uint256 seizedCollateralAmount);
     /**
      * @notice Emitted when a new reserve is initialized.
      * @param asset The address of the underlying asset.
@@ -66,7 +77,7 @@ contract LendingPool is Ownable {
      * @param asset The address of the asset.
      * @param useAsCollateral True if the asset is enabled as collateral, false otherwise.
      */
-    event SetUserUseAsCollateral(address indexed user, address indexed asset, bool useAsCollateral);
+    event SetUserUseAsCollateral(address indexed user, address indexed asset, bool indexed useAsCollateral);
 
 
     // --- State Variables ---
@@ -100,7 +111,7 @@ contract LendingPool is Ownable {
 
     // --- Modifiers ---
     modifier reserveExists(address asset) {
-        require(_reserves[asset].aTokenAddress != address(0), "LendingPool: Reserve does not exist");
+        if (_reserves[asset].aTokenAddress == address(0)) revert ReserveDoesNotExist();
         _;
     }
 
@@ -121,7 +132,7 @@ contract LendingPool is Ownable {
      * @param interestRateModel The address of the interest rate model.
      */
     function initReserve(address asset, address aTokenAddress, address interestRateModel) external onlyOwner {
-        require(_reserves[asset].aTokenAddress == address(0), "LendingPool: Reserve already initialized");
+        if (_reserves[asset].aTokenAddress != address(0)) revert ReserveAlreadyInitialized();
         _reserves[asset] = Reserve.Data({
             aTokenAddress: aTokenAddress,
             interestRateModelAddress: interestRateModel,
@@ -151,7 +162,7 @@ contract LendingPool is Ownable {
      * @param amount The amount to deposit.
      */
     function deposit(address asset, uint256 amount) external reserveExists(asset) {
-        require(amount > 0, "Amount must be > 0");
+        if (amount == 0) revert AmountIsZero();
         _accrueInterest(asset);
         
         Reserve.Data storage reserve = _reserves[asset];
@@ -170,21 +181,21 @@ contract LendingPool is Ownable {
      * @param amount The amount to withdraw.
      */
     function withdraw(address asset, uint256 amount) external reserveExists(asset) {
-        require(amount > 0, "Amount must be > 0");
+        if (amount == 0) revert AmountIsZero();
         _accrueInterest(asset);
 
         Reserve.Data storage reserve = _reserves[asset];
         uint256 aTokensToBurn = (amount * RAY) / reserve.supplyIndex;
         
         aToken aTokenContract = aToken(reserve.aTokenAddress);
-        require(aTokenContract.balanceOf(msg.sender) >= aTokensToBurn, "Insufficient aToken balance");
+        if (aTokenContract.balanceOf(msg.sender) < aTokensToBurn) revert InsufficientATokenBalance();
 
         aTokenContract.burn(msg.sender, aTokensToBurn);
         
         // Health Factor check before withdrawing collateral
         if(_userUsesAsCollateral[msg.sender][asset]) {
             (uint256 totalCollateralETH, uint256 totalDebtETH) = _getUserAccountData(msg.sender);
-            require(totalDebtETH == 0 || (totalCollateralETH * 1e18) / totalDebtETH >= LIQUIDATION_THRESHOLD, "Cannot withdraw: health factor too low");
+            if (totalDebtETH > 0 && (totalCollateralETH * 1e18) / totalDebtETH < LIQUIDATION_THRESHOLD) revert HealthFactorTooLow();
         }
 
         IERC20(asset).transfer(msg.sender, amount);
@@ -197,15 +208,15 @@ contract LendingPool is Ownable {
      * @param amount The amount to borrow.
      */
     function borrow(address asset, uint256 amount) external reserveExists(asset) {
-        require(amount > 0, "Amount must be > 0");
+        if (amount == 0) revert AmountIsZero();
         _accrueInterest(asset);
 
         (uint256 totalCollateralETH, uint256 totalDebtETH) = _getUserAccountData(msg.sender);
         uint256 assetPrice = oracle.getAssetPrice(asset);
         uint256 newDebtETH = (amount * assetPrice) / 1e18;
 
-        require(totalCollateralETH > 0, "No collateral available");
-        require(((totalDebtETH + newDebtETH) * 1e18) / totalCollateralETH < LIQUIDATION_THRESHOLD, "Borrow would exceed collateral limits");
+        if (totalCollateralETH == 0) revert NoCollateralAvailable();
+        if (((totalDebtETH + newDebtETH) * 1e18) / totalCollateralETH >= LIQUIDATION_THRESHOLD) revert BorrowExceedsCollateralLimits();
 
         Reserve.Data storage reserve = _reserves[asset];
         _userBorrows[asset][msg.sender] += amount;
@@ -221,7 +232,7 @@ contract LendingPool is Ownable {
      * @param amount The amount to repay.
      */
     function repay(address asset, uint256 amount) external reserveExists(asset) {
-        require(amount > 0, "Amount must be > 0");
+        if (amount == 0) revert AmountIsZero();
         _accrueInterest(asset);
 
         uint256 userDebt = _userBorrows[asset][msg.sender];
@@ -248,7 +259,7 @@ contract LendingPool is Ownable {
 
         (uint256 totalCollateralETH, uint256 totalDebtETH) = _getUserAccountData(borrower);
         uint256 healthFactor = (totalCollateralETH * 1e18) / totalDebtETH;
-        require(healthFactor < 1e18, "Borrower is not under liquidation threshold");
+        if (healthFactor >= 1e18) revert BorrowerNotUnderLiquidationThreshold();
         
         uint256 userDebt = _userBorrows[repayAsset][borrower];
         uint256 repayAmount = (userDebt * CLOSE_FACTOR) / 1e18;

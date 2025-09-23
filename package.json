@@ -7,5 +7,8 @@
   },
   "scripts": {
     "lint": "solhint 'contracts/**/*.sol'"
+  },
+  "dependencies": {
+    "@nomicfoundation/solidity-analyzer-linux-x64-gnu": "^0.1.2"
   }
 }

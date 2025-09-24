@@ -45,7 +45,7 @@ async function main() {
   console.log("LendingPool deployed to:", await lendingPool.getAddress());
 
   // --- 4. Deploy aTokens ---
-  const AToken = await ethers.getContractFactory("aToken");
+  const AToken = await ethers.getContractFactory("AToken");
   // aWETH
   const aWeth = await AToken.deploy(await weth.getAddress(), await lendingPool.getAddress(), "MiniAave WETH", "aWETH");
   await aWeth.waitForDeployment();

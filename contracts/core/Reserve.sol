@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title Reserve
+ * @author Vincent Mousseaux
  * @notice Library to store the data for each asset reserve.
  */
 library Reserve {
@@ -13,14 +14,6 @@ library Reserve {
 
     struct Data {
         /**
-         * @notice Address of the associated aToken
-         */
-        address aTokenAddress;
-        /**
-         * @notice Address of the interest rate model
-         */
-        address interestRateModelAddress;
-        /**
          * @notice The cumulative index for supply interest, in RAY
          */
         uint256 supplyIndex;
@@ -29,12 +22,20 @@ library Reserve {
          */
         uint256 borrowIndex;
         /**
+         * @notice Total principal amount borrowed from this reserve
+         */
+        uint256 totalBorrows;
+        /**
+         * @notice Address of the associated aToken
+         */
+        address aTokenAddress;
+        /**
          * @notice Timestamp of the last interest accrual
          */
         uint40 lastUpdateTimestamp;
         /**
-         * @notice Total principal amount borrowed from this reserve
+         * @notice Address of the interest rate model
          */
-        uint256 totalBorrows;
+        address interestRateModelAddress;
     }
 }

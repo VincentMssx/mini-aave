@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title IInterestRateModel
+ * @author Vincent Mousseaux
  * @notice Interface for an interest rate model.
  */
 interface IInterestRateModel {
@@ -21,6 +22,7 @@ interface IInterestRateModel {
 
 /**
  * @title DefaultInterestRateModel
+ * @author Vincent Mousseaux
  * @notice A simple linear interest rate model.
  * @dev The interest rate is a function of the utilization rate (totalBorrows / (totalBorrows + availableLiquidity)).
  * Rates are expressed in RAY (1e27).

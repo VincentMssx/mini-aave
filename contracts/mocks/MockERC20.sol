@@ -5,6 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title MockERC20
+ * @author Vincent Mousseaux
  * @notice A mock ERC20 token for testing purposes.
  */
 contract MockERC20 is ERC20 {
@@ -26,6 +27,7 @@ contract MockERC20 is ERC20 {
     function _setupDecimals(uint8 decimals_) internal {
         // an internal function in OZ 4.x, but not in 5.x.
         // This is a workaround to maintain compatibility.
+        uint8 _ = decimals_;
     }
 
     /**

@@ -162,12 +162,12 @@ contract LendingPool is Ownable {
     function initReserve(address asset, address aTokenAddress, address interestRateModel) external onlyOwner {
         if (_reserves[asset].aTokenAddress != address(0)) revert ReserveAlreadyInitialized();
         _reserves[asset] = Reserve.Data({
-            aTokenAddress: aTokenAddress,
-            interestRateModelAddress: interestRateModel,
             supplyIndex: RAY,
             borrowIndex: RAY,
+            totalBorrows: 0,
+            aTokenAddress: aTokenAddress,
             lastUpdateTimestamp: uint40(block.timestamp),
-            totalBorrows: 0
+            interestRateModelAddress: interestRateModel
         });
         _reservesList.push(asset);
         emit ReserveInitialized(asset, aTokenAddress);

@@ -5,6 +5,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 
 /**
  * @title MockV3Aggregator
+ * @author Vincent Mousseaux
  * @notice A mock for the Chainlink V3 Aggregator, for testing purposes.
  */
 contract MockV3Aggregator is AggregatorV3Interface {

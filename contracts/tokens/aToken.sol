@@ -17,7 +17,7 @@ contract AToken is ERC20, Ownable {
     address public immutable UNDERLYING_ASSET;
 
     /**
-     * @notice Constructs the aToken contract.
+     * @notice Constructs the AToken contract.
      * @param underlyingAsset The address of the underlying asset.
      * @param pool The address of the LendingPool.
      * @param tokenName The name of the token.
@@ -33,7 +33,7 @@ contract AToken is ERC20, Ownable {
     }
 
     /**
-     * @dev Mints aTokens to a user's account.
+     * @dev Mints ATokens to a user's account.
      * @param to The address to mint tokens to.
      * @param amount The amount of tokens to mint.
      * @notice This function can only be called by the LendingPool.
@@ -43,7 +43,7 @@ contract AToken is ERC20, Ownable {
     }
 
     /**
-     * @dev Burns aTokens from a user's account.
+     * @dev Burns ATokens from a user's account.
      * @param from The address to burn tokens from.
      * @param amount The amount of tokens to burn.
      * @notice This function can only be called by the LendingPool.

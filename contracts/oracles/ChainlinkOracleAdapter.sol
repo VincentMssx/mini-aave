@@ -15,6 +15,7 @@ error InvalidPrice();
 
 /**
  * @title ChainlinkOracleAdapter
+ * @author Vincent Mousseaux
  * @notice Provides a standardized interface for fetching asset prices from Chainlink.
  * @dev Normalizes prices to 18 decimals.
  */
@@ -36,7 +37,7 @@ contract ChainlinkOracleAdapter is Ownable {
      * @notice Constructs the ChainlinkOracleAdapter contract.
      * @param owner The owner of the contract.
      */
-    constructor(address owner) Ownable(owner) {}
+    constructor(address owner) public Ownable(owner) {}
 
     /**
      * @notice Sets the Chainlink aggregator feed for a given asset.

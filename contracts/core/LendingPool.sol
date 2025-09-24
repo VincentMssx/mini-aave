@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Reserve} from "./Reserve.sol";
-import {AToken} from "../tokens/AToken.sol";
+import {AToken} from "../tokens/aToken.sol";
 import {IInterestRateModel} from "../interest/InterestRateModel.sol";
 import {ChainlinkOracleAdapter} from "../oracles/ChainlinkOracleAdapter.sol";
 
@@ -113,7 +113,7 @@ contract LendingPool is Ownable {
     /**
      * @notice The address of the Chainlink oracle adapter.
      */
-    ChainlinkOracleAdapter public immutable oracle;
+    ChainlinkOracleAdapter public immutable ORACLE;
 
     // --- Constants ---
     /**
@@ -148,8 +148,8 @@ contract LendingPool is Ownable {
      * @notice Constructs the LendingPool contract.
      * @param oracleAddress The address of the Chainlink oracle adapter.
      */
-    constructor(address oracleAddress) Ownable(msg.sender) {
-        oracle = ChainlinkOracleAdapter(oracleAddress);
+    constructor(address oracleAddress) public Ownable(msg.sender) {
+        ORACLE = ChainlinkOracleAdapter(oracleAddress);
     }
 
     // --- Admin Functions ---
@@ -240,7 +240,7 @@ contract LendingPool is Ownable {
         _accrueInterest(asset);
 
         (uint256 totalCollateralETH, uint256 totalDebtETH) = _getUserAccountData(msg.sender);
-        uint256 assetPrice = oracle.getAssetPrice(asset);
+        uint256 assetPrice = ORACLE.getAssetPrice(asset);
         uint256 newDebtETH = (amount * assetPrice) / 1e18;
 
         if (totalCollateralETH == 0) revert NoCollateralAvailable();
@@ -292,8 +292,8 @@ contract LendingPool is Ownable {
         uint256 userDebt = _userBorrows[repayAsset][borrower];
         uint256 repayAmount = (userDebt * CLOSE_FACTOR) / 1e18;
         
-        uint256 repayAssetPrice = oracle.getAssetPrice(repayAsset);
-        uint256 collateralAssetPrice = oracle.getAssetPrice(collateralAsset);
+        uint256 repayAssetPrice = ORACLE.getAssetPrice(repayAsset);
+        uint256 collateralAssetPrice = ORACLE.getAssetPrice(collateralAsset);
         
         uint256 repayValueInETH = (repayAmount * repayAssetPrice) / 1e18;
         uint256 seizedCollateralValueInETH = (repayValueInETH * (1e18 + LIQUIDATION_BONUS)) / 1e18;
@@ -361,11 +361,11 @@ contract LendingPool is Ownable {
             if (_userUsesAsCollateral[user][asset]) {
                 uint256 aTokenBalance = AToken(reserve.aTokenAddress).balanceOf(user);
                 uint256 balance = (aTokenBalance * reserve.supplyIndex) / RAY;
-                totalCollateralETH += (balance * oracle.getAssetPrice(asset)) / 1e18;
+                totalCollateralETH += (balance * ORACLE.getAssetPrice(asset)) / 1e18;
             }
 
             if (_userBorrows[asset][user] != 0) {
-                totalDebtETH += (_userBorrows[asset][user] * oracle.getAssetPrice(asset)) / 1e18;
+                totalDebtETH += (_userBorrows[asset][user] * ORACLE.getAssetPrice(asset)) / 1e18;
             }
         }
     }

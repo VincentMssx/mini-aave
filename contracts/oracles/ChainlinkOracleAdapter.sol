@@ -61,10 +61,10 @@ contract ChainlinkOracleAdapter is Ownable {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feedAddress);
         (, int256 price, , , ) = priceFeed.latestRoundData();
 
-        if (price <= 0) revert InvalidPrice();
+        if (price < 1) revert InvalidPrice();
 
         uint8 feedDecimals = priceFeed.decimals();
-        if (feedDecimals >= PRICE_DECIMALS) {
+        if (feedDecimals > PRICE_DECIMALS - 1) {
             return uint256(price) / (10 ** (feedDecimals - PRICE_DECIMALS));
         } else {
             return uint256(price) * (10 ** (PRICE_DECIMALS - feedDecimals));

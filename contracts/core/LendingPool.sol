@@ -244,7 +244,7 @@ contract LendingPool is Ownable {
         uint256 newDebtETH = (amount * assetPrice) / 1e18;
 
         if (totalCollateralETH == 0) revert NoCollateralAvailable();
-        if (((totalDebtETH + newDebtETH) * 1e18) / totalCollateralETH >= LIQUIDATION_THRESHOLD) revert BorrowExceedsCollateralLimits();
+        if (((totalDebtETH + newDebtETH) * 1e18) / totalCollateralETH > LIQUIDATION_THRESHOLD - 1) revert BorrowExceedsCollateralLimits();
 
         Reserve.Data storage reserve = _reserves[asset];
         _userBorrows[asset][msg.sender] += amount;
